@@ -6,7 +6,10 @@ readme = "README.md"
 authors = [{ name = "mrkltmn", email = "maltman@fastmail.com" }]
 requires-python = ">=3.13"
 dependencies = [
+    "onnxruntime>=1.31.1",
+    "opencv-python>=5.0.0.93",
     "pymupdf>=2.1",
+    "rapidocr>=3.10.0",
 ]
 
 [project.scripts]
