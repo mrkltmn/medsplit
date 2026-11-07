@@ -3,11 +3,11 @@ name = "medsplit"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-authors = [
-    { name = "mrkltmn", email = "maltman@fastmail.com" }
-]
+authors = [{ name = "mrkltmn", email = "maltman@fastmail.com" }]
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "pymupdf>=2.1",
+]
 
 [project.scripts]
 medsplit = "medsplit:main"
