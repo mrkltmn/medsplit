@@ -1,19 +1,22 @@
 [project]
 name = "medsplit"
 version = "0.1.0"
-description = "Add your description here"
+description = "Split medical-record PDFs into encounters sorted by date"
 readme = "README.md"
 authors = [{ name = "mrkltmn", email = "maltman@fastmail.com" }]
 requires-python = ">=3.13"
 dependencies = [
-    "datetime>=6.0",
-    "opencv-python>=5.0.0.93",
     "pymupdf>=2.1",
 ]
 
 [project.scripts]
-medsplit = "medsplit:main"
+medsplit = "medsplit.cli:main"
 
 [build-system]
 requires = ["uv_build>=0.13.5,<0.14.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+]

@@ -1,11 +1,18 @@
+import datetime as dt
 import re
+from collections import Counter
 from dataclasses import dataclass
 
 from .constants import (
     ENCOUNTER_LABELS_FACILITY,
     ENCOUNTER_LABELS_FALLBACK,
     ENCOUNTER_LABELS_PRIMARY,
+    EXCLUDE_LABELS,
+    FILE_WIDE_EXCLUDE_LABELS,
+    OCR_LABEL_VARIANTS,
+    UNLABELED_CONTEXT_EXCLUDE,
 )
+from .normalize_date import normalize_date
 
 SEP_SYMB = r"\s*[:#\-]?\s*"
 MONTH = (
@@ -63,9 +70,10 @@ def build_pattern(labels: tuple[str, ...]) -> re.Pattern[str]:
     return re.compile(full_search, flags=re.IGNORECASE)
 
 
-PRIMARY_PATTERN = build_pattern(ENCOUNTER_LABELS_PRIMARY)
+PRIMARY_PATTERN = build_pattern(ENCOUNTER_LABELS_PRIMARY + OCR_LABEL_VARIANTS)
 FACILITY_PATTERN = build_pattern(ENCOUNTER_LABELS_FACILITY)
 FALLBACK_PATTERN = build_pattern(ENCOUNTER_LABELS_FALLBACK)
+EXCLUDE_PATTERN = build_pattern(EXCLUDE_LABELS)
 UNLABELED_PATTERN = re.compile(
     r"(?<![A-Za-z])(?P<date>" + DATE_TERM + ")",
     flags=re.IGNORECASE,
@@ -113,3 +121,102 @@ def search_date(text: str) -> dict[str, list[SearchResult]]:
         found_terms[term] = result_list
 
     return found_terms
+
+
+# Tiers 0 (primary) and 1 (facility) are trusted enough to override a
+# "continued from the previous page" signal; tiers 2 and 3 are not.
+STRONG_TIERS = (0, 1)
+
+CONTEXT_EXCLUDE_PATTERN = re.compile(
+    "|".join(map(re.escape, UNLABELED_CONTEXT_EXCLUDE)), flags=re.IGNORECASE
+)
+
+
+@dataclass(frozen=True, kw_only=True)
+class PageDate:
+    date: dt.date
+    tier: int
+    label: str | None
+
+
+def excluded_dates(text: str) -> tuple[list[tuple[int, int]], set[dt.date]]:
+    """
+    Finds dates that sit right after an excluded label (DOB, date of injury,
+    printed on, etc.). Returns the positions of all of them in the text, plus
+    the set of patient-level dates (DOB, date of injury...) that should be
+    ignored everywhere in the file.
+    """
+    spans = []
+    patient_dates = set()
+
+    for match in EXCLUDE_PATTERN.finditer(text):
+        spans.append(match.span("date"))
+        label = " ".join(match.group("label").lower().split())
+        if label in FILE_WIDE_EXCLUDE_LABELS:
+            date = normalize_date(match.group("date"))
+            if date is not None:
+                patient_dates.add(date)
+
+    return spans, patient_dates
+
+
+def _overlaps(start: int, end: int, spans: list[tuple[int, int]]) -> bool:
+    return any(start < span_end and span_start < end for span_start, span_end in spans)
+
+
+def _line_around(text: str, start: int, end: int) -> str:
+    line_start = text.rfind("\n", 0, start) + 1
+    line_end = text.find("\n", end)
+    return text[line_start : line_end if line_end != -1 else len(text)]
+
+
+def pick_page_date(
+    text: str, ignore_unlabeled: set[dt.date] | None = None
+) -> PageDate | None:
+    """
+    Chooses the most likely encounter date for one page.
+
+    The best (lowest number) tier that has a usable date wins. Within a tier the
+    date that appears most often wins, and ties go to the one closest to the top
+    of the page. Dates that follow an excluded label (DOB, date of injury, print
+    date, ...) or fail validation are skipped.
+
+    ignore_unlabeled: dates that should never be chosen from unlabeled matches,
+    such as the patient's DOB or the date of injury found elsewhere in the file.
+    """
+    ignore_unlabeled = ignore_unlabeled or set()
+    exclude_spans, _ = excluded_dates(text)
+
+    for tier_results in search_date(text).values():
+        counts: Counter[dt.date] = Counter()
+        first_seen: dict[dt.date, SearchResult] = {}
+
+        for result in tier_results:
+            if result.date is None:
+                continue
+
+            date_start = result.end - len(result.date)
+            if _overlaps(date_start, result.end, exclude_spans):
+                continue
+
+            date = normalize_date(result.date)
+            if date is None:
+                continue
+
+            if result.label is None:
+                if date in ignore_unlabeled:
+                    continue
+                if CONTEXT_EXCLUDE_PATTERN.search(
+                    _line_around(text, date_start, result.end)
+                ):
+                    continue
+
+            counts[date] += 1
+            first_seen.setdefault(date, result)
+
+        if counts:
+            best = max(counts, key=lambda d: (counts[d], -first_seen[d].start))
+            result = first_seen[best]
+            return PageDate(date=best, tier=result.tier, label=result.label)
+
+    return None

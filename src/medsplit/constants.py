@@ -76,6 +76,7 @@ ENCOUNTER_LABELS_FACILITY = (
     "admit date/time",
     "adm date",
     "adm dt",
+    "adm",
     "admitted",
     "arrival date",
     "arrival date/time",
@@ -169,3 +170,89 @@ EXCLUDE_LABELS = (
     "ordered",
     "order date",
 )
+
+# Excluded labels whose dates are about the patient, not one document (DOB,
+# date of injury). These dates are ignored as unlabeled dates across the whole
+# file, not just on the page where the label appears.
+FILE_WIDE_EXCLUDE_LABELS = (
+    "date of birth",
+    "dob",
+    "birth date",
+    "birthdate",
+    "d.o.b.",
+    "date of injury",
+    "doi",
+    "injury date",
+    "date of accident",
+    "accident date",
+    "date of loss",
+    "dol",
+    "doa",
+)
+
+# Phrases that show up on subpoenas, DWQs, custodian affidavits, notices of
+# delivery and records-company cover sheets. A page containing two or more of
+# these is filed in the legal folder instead of being sorted by date.
+LEGAL_KEYWORDS = (
+    "subpoena",
+    "deposition",
+    "written questions",
+    "direct questions",
+    "civil action",
+    "cause no",
+    "district court",
+    "county court",
+    "custodian of records",
+    "custodian of billing",
+    "notary public",
+    "sworn to",
+    "subscribed",
+    "affidavit",
+    "rule of civil procedure",
+    "rules of civil procedure",
+    "proof of service",
+    "process server",
+    "registered agent",
+    "records from:",
+    "deliver to:",
+    "pertains to:",
+    "reported by:",
+    "notice of delivery",
+    "attestation regarding",
+    "reproductive health care",
+    "certificate of service",
+    "plaintiff",
+    "defendant",
+    "trustworthy",
+    "exact duplicates",
+    "no records can be found",
+    "document retention",
+    "comm. expires",
+    "commission expires",
+)
+
+# Words that, when on the same line as an unlabeled date, mean the date is a
+# print/fax/transmission stamp or a patient detail rather than the visit date.
+UNLABELED_CONTEXT_EXCLUDE = (
+    "print",
+    "fax",
+    "generated",
+    "transmit",
+    "received",
+    "expire",
+    "dob",
+    "birth",
+    "injury",
+    "accident",
+    "onset",
+    "next appt",
+    "next appointment",
+)
+
+# Folder names inside split_files for pages that are not sorted by date.
+LEGAL_FOLDER = "_DWQ_and_Subpoenas"
+UNDATED_FOLDER = "_Undated"
+OUTPUT_FOLDER = "split_files"
+
+# Default Bates prefix (e.g. "DEF DWQ 000123").
+DEFAULT_BATES_PREFIX = "DEF DWQ"

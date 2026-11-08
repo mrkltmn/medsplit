@@ -1,13 +1,6 @@
-from pathlib import Path
+import sys
 
-from src.medsplit.read_files import read_files
-
-
-def main() -> None:
-    path = Path.cwd()
-
-    read_files(path)
-
+from medsplit.cli import main
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
